@@ -9,6 +9,9 @@ This project is a simple example of how to use cache in a Spring Boot applicatio
 - Spring Boot 3.3.1
 - Mysql 8.3.0
 - Redis 7.2.5
+    - redis monitoring
+    - docker exec -it b93b9d984faf redis-cli monitor
+    - docker stats b93b9d984faf
 
 ## 3. Setup
 fist you have to settings build.gradle file to use the dependencies below:
