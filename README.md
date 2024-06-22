@@ -108,7 +108,7 @@ public class UserService {
     public User getUser(final Long id) {
         var key = "users:%d".formatted(id);
         var cachedUser = objectRedisTemplate.opsForValue().get(key);
-        if (cachedUser != null) { // if cachedUser is not null, return cachedUser
+        if (cachedUser != null) { // 만약 캐시에 존재한다면
             return (User) cachedUser;
         }
 
@@ -116,5 +116,71 @@ public class UserService {
         objectRedisTemplate.opsForValue().set(key, user, Duration.ofSeconds(30)); // Cache for 30 seconds
         return user;
     }
+
+    public RedisHashUser getUser2(final Long id) {
+        return redisHashUserRepository.findById(id).orElseGet(() -> createAndCacheRedisHashUser(id));
+    }
+
+    private RedisHashUser createAndCacheRedisHashUser(Long id) {
+        User user = userRepository.findById(id).orElseThrow();
+        RedisHashUser redisHashUser = RedisHashUser.builder()
+                .id(user.getId())
+                .name(user.getName())
+                .email(user.getEmail())
+                .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
+                .build();
+        return redisHashUserRepository.save(redisHashUser);
+    }
 }
+```
+
+## 6. Spring Cache
+if you search for Spring Cache settings, you will find it.\n
+When you search for cache, you will find Spring cache abstraction.\n
+To use Spring Cache, you need to add `spring-boot-starter-cache` and `@EnableCaching`.\n
+
+```java
+@SpringBootApplication
+@EnableJpaAuditing
+@EnableCaching
+public class CacheApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(CacheApplication.class, args);
+    }
+}
+```
+
+```shell
+implementation 'org.springframework.boot:spring-boot-starter-cache'
+```
+
+The usage is simple. You just need to use `@Cacheable`, `@CacheEvict`, and `@CachePut`.
+
+- `@Cacheable` returns cached data if it exists; if it doesn't, it executes the method and stores the result in the cache.
+- `@CacheEvict` is an annotation used to clear the cache.
+- `@CachePut` is an annotation used to store data in the cache.
+
+```java
+    @Cacheable(cacheNames = CACHE1, key = "'user:' + #id")
+    public User getUser3(final Long id) {
+        return userRepository.findById(id).orElseThrow();
+    }
+```
+
+This is how to use caching with `@Cacheable`.\n
+However, this method has the inconvenience of having to specify the cache key directly each time the cache is used.\n
+To use dynamic data caching, you can use a `keyGenerator`.
+
+## performanceTest
+brew install vegeta
+touch request1.txt
+```shell
+GET http://localhost:8080/user/1
+GET http://localhost:8080/user/2
+GET http://localhost:8080/user/3
+```
+```shell
+vegeta attack -duration=30s -rate=5000/1s -targets=request1.txt -workers=100 | tee v_results.bin | vegeta report
 ```
